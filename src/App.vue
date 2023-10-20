@@ -19,10 +19,25 @@
 
   <div class="view chat" v-else>
     <header>
-      <button class="logout">Logout</button>
+      <button class="logout" @click="Logout">Logout</button>
       <h1>Welcome, {{ state.username }}</h1>
     </header>
-    <section class="chat-box">// messages</section>
+    <section class="chat-box">
+      <div
+        v-for="message in state.messages"
+        :key="message.key"
+        :class="
+          message.username == state.username
+            ? 'message current-user'
+            : 'message'
+        "
+      >
+        <div class="message-inner">
+          <div class="username">{{ message.username }}</div>
+          <div class="content">{{ message.content }}</div>
+        </div>
+      </div>
+    </section>
     <footer>
       <form @submit.prevent="SendMessage">
         <input
@@ -38,7 +53,7 @@
 
 <script>
 import { reactive, onMounted, ref } from "vue";
-import { push, ref as dbRef } from "firebase/database";
+import { push, ref as dbRef, onValue } from "firebase/database";
 import db from "./db";
 
 export default {
@@ -58,6 +73,10 @@ export default {
       }
     };
 
+    const Logout = () => {
+      state.username = "";
+    };
+
     const SendMessage = () => {
       if (inputMessage.value === "" || inputMessage.value === null) {
         return;
@@ -74,12 +93,33 @@ export default {
       inputMessage.value = "";
     };
 
+    onMounted(() => {
+      const messagesRef = dbRef(db, "messages");
+
+      onValue(messagesRef, (snapshot) => {
+        const data = snapshot.val();
+        let messagesArray = [];
+
+        if (data) {
+          Object.keys(data).forEach((key) => {
+            messagesArray.push({
+              id: key,
+              username: data[key].username,
+              content: data[key].content,
+            });
+          });
+        }
+        state.messages = messagesArray;
+      });
+    });
+
     return {
       inputUsername,
       Login,
       state,
       inputMessage,
       SendMessage,
+      Logout,
     };
   },
 };
@@ -199,21 +239,28 @@ export default {
       position: relative;
       display: block;
       width: 100%;
-      padding: 50px 30px 10px;
+      padding: 70px 30px 10px;
 
       .logout {
         position: absolute;
         top: 15px;
         right: 15px;
         appearance: none;
-        border: none;
+        border: 1px solid white;
+        border-radius: 12px;
+        box-shadow: 0px 0px 12px rgba(100, 100, 100, 0.2);
         outline: none;
         background: none;
+        padding: 0.25rem 0.5rem;
 
         color: #fff;
         font-size: 18px;
         margin-bottom: 10px;
         text-align: right;
+
+        &:hover {
+          background-color: darken($color: #ea526f, $amount: 5%);
+        }
       }
 
       h1 {
@@ -239,6 +286,7 @@ export default {
             margin-bottom: 5px;
             padding-left: 15px;
             padding-right: 15px;
+            text-align: left;
           }
 
           .content {
@@ -261,6 +309,10 @@ export default {
 
           .message-inner {
             max-width: 75%;
+
+            .username {
+              text-align: right;
+            }
 
             .content {
               color: #fff;
